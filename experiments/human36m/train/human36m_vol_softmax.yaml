@@ -1,0 +1,176 @@
+title: "human36m_vol_softmax"
+kind: "human36m"
+vis_freq: 1000
+vis_n_elements: 10
+
+image_shape: [384, 384]
+
+#-----------ayy---------------
+BACKBONE:
+  DOWNSAMPLE: 4
+
+EPIPOLAR:
+  # random select a view from K nearest neighbors
+  # 0: use range
+  # >0: use TOPK
+  # <0: use baseline range like (1059, 200) which means 1059 +- 200
+  TOPK: 1
+  TOPK_RANGE: (1, 2)
+  # way to combine features on epipolar line
+  # max: select the most similar
+  # avg: weighted average based on similarity
+  ATTENTIONz: 'max'
+  SIMILARITY: 'dot'
+  # cos, dot
+  SAMPLESIZE: 64
+  SOFTMAX_ENABLED: True
+  SOFTMAXSCALE: 1 / _C.EPIPOLAR.SAMPLESIZE**.5
+  SOFTMAXBETA: True
+  # merge features early or late
+  MERGE: 'late'
+  # only use other view's image
+  OTHER_ONLY: False
+  # gradient on other view
+  OTHER_GRAD: ('other1', 'other2')
+  # share weights between reference view and other view
+  SHARE_WEIGHTS: False
+  # share weights between reference view and other view
+  # can parameterize 'z', 'theta', 'phi', 'g'
+  PARAMETERIZED: ()
+  ZRESIDUAL: False
+  # test all neighbouring views and adopt the best according to confidence
+  MULTITEST: False
+  WARPEDHEATMAP: False
+  # learn prior for each pair of views
+  PRIOR: False
+  PRIORMUL: False
+
+  REPROJECT_LOSS_WEIGHT: 0
+  SIM_LOSS_WEIGHT: 0
+  # load model from single view pretrained model
+  PRETRAINED: True
+
+  # find corrspondence based on 'feature' or 'rgb'
+  FIND_CORR: 'feature'
+
+  BOTTLENECK: 1
+  POOLING: False
+
+  USE_CORRECT_NORMALIZE: False
+
+
+KEYPOINT:
+  HEATMAP_SIZE: (256, 256)
+
+  ENABLED: False
+  SIGMA: 25
+  NUM_PTS: 21
+  ROOTIDX: 0
+
+  # number of views to use
+  NUM_CAM: 0
+  NFEATS: 256
+  # naive, pymvg, refine, epipolar, epipolar_dlt, rpsm
+  TRIANGULATION: 'naive'
+  CONF_THRES: 0.05
+  RANSAC_THRES: 3
+  # mse, joint, smoothmse
+  LOSS: 'mse'
+  # calculate loss for each joint
+  LOSS_PER_JOINT: True
+
+DATASETS:
+  IMAGE_RESIZE: 1
+  PREDICT_RESIZE: 1
+
+
+#-----------ayy---------------
+
+
+opt:
+  criterion: "MAE"
+
+  use_volumetric_ce_loss: true
+  volumetric_ce_loss_weight: 0.01
+
+  n_objects_per_epoch: 15000
+  n_epochs: 30
+
+  batch_size: 3
+  val_batch_size: 10
+
+  lr: 0.0001
+  process_features_lr: 0.001
+  volume_net_lr: 0.001
+
+  scale_keypoints_3d: 0.1
+
+model:
+  name: "vol"
+  kind: "mpii"
+  volume_aggregation_method: "softmax"
+
+  init_weights: false
+  # init_weights: true
+  # checkpoint: "/hy-tmp/GCN_epi_serial_dym_vol_inter_bias_remove/lo/human36m_vol_softmax_VolumetricTriangulationNet@04.04.2023-14:38:33/checkpoints/0003/weights.pth"
+
+  use_gt_pelvis: false
+
+  cuboid_side: 2500.0
+
+  volume_size: 64
+  volume_multiplier: 1.0
+  volume_softmax: true
+
+  heatmap_softmax: true
+  heatmap_multiplier: 1  # 100
+
+  backbone:
+    name: "resnet152"
+    style: "simple"
+
+    init_weights: true
+    # init_weights: false
+    checkpoint: "/hy-tmp/data/pretrained/human36m/resnet50-19c8e357.pth"
+    checkpoint: "/hy-tmp/data/pretrained/human36m/pose_resnet_4.5_pixels_human36m.pth"
+
+    num_joints: 17
+    num_layers: 152
+    # num_layers: 50
+
+dataset:
+  kind: "human36m"
+
+  train:
+    h36m_root: "/hy-tmp/data/processed/"
+    labels_path: "/hy-tmp/data/extra/human36m-multiview-labels-GTbboxes.npy"
+    pred_results_path: "/hy-tmp/data/pretrained/human36m/human36m_alg_10-04-2019/checkpoints/0060/results/train.pkl"
+
+    with_damaged_actions: true
+    undistort_images: true
+
+    scale_bbox: 1.0
+
+    shuffle: true
+    randomize_n_views: false
+    min_n_views: null
+    max_n_views: null
+    num_workers: 5
+
+  val:
+    h36m_root: "/hy-tmp/data/processed/"
+    labels_path: "/hy-tmp/data/extra/human36m-multiview-labels-GTbboxes.npy"
+    pred_results_path: "/hy-tmp/data/pretrained/human36m/human36m_alg_10-04-2019/checkpoints/0060/results/val.pkl"
+
+    with_damaged_actions: true
+    undistort_images: true
+
+    scale_bbox: 1.0
+
+    shuffle: false
+    randomize_n_views: false
+    min_n_views: null
+    max_n_views: null
+    num_workers: 10
+
+    retain_every_n_frames_in_test: 1
